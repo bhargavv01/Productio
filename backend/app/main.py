@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.database import SessionLocal
 from app.seed import seed_categories
 from app.routers import categories, log_entries, planned_blocks, goals, reports
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG if settings.DEBUG else logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -25,15 +26,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Productio — Personal Day Tracker",
-    version="0.1.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG,
     lifespan=lifespan,
 )
 
-# CORS — allow React dev server
+# CORS — configure allowed origins from environment
+origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=origins if origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

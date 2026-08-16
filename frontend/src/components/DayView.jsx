@@ -563,6 +563,86 @@ export default function DayView() {
         </div>
       </div>
 
+      {/* Planned Blocks Section */}
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Planned Blocks</h2>
+        
+        <form style={styles.form} onSubmit={handleAddBlock}>
+          <div style={styles.formRow}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Title</label>
+              <input required style={styles.input} type="text" value={newBlock.title} onChange={e => setNewBlock({...newBlock, title: e.target.value})} placeholder="What to do?" />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Category</label>
+              <select required style={styles.input} value={newBlock.category_id} onChange={e => setNewBlock({...newBlock, category_id: parseInt(e.target.value) || e.target.value})}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={styles.formRow}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Start Time</label>
+              <input required style={styles.input} type="time" value={newBlock.start_time} onChange={e => setNewBlock({...newBlock, start_time: e.target.value})} />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>End Time</label>
+              <input required style={styles.input} type="time" value={newBlock.end_time} onChange={e => setNewBlock({...newBlock, end_time: e.target.value})} />
+            </div>
+          </div>
+          <button type="submit" style={styles.buttonPrimary}>Add Block</button>
+        </form>
+
+        <div style={styles.list}>
+          {loading ? <div style={styles.emptyState}>Loading...</div> : 
+           plannedBlocks.length === 0 ? <div style={styles.emptyState}>No planned blocks yet.</div> :
+           plannedBlocks.map(block => {
+             const cat = getCategoryDetails(block.category_id);
+             const isEditing = editingBlockId === block.id;
+
+             if (isEditing) {
+               return (
+                 <div key={block.id} style={styles.listItem}>
+                   <div style={styles.inlineForm}>
+                     <input style={styles.input} value={editBlock.title} onChange={e => setEditBlock({...editBlock, title: e.target.value})} />
+                     <select style={styles.input} value={editBlock.category_id} onChange={e => setEditBlock({...editBlock, category_id: parseInt(e.target.value) || e.target.value})}>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                     </select>
+                     <input type="time" style={styles.input} value={editBlock.start_time} onChange={e => setEditBlock({...editBlock, start_time: e.target.value})} />
+                     <input type="time" style={styles.input} value={editBlock.end_time} onChange={e => setEditBlock({...editBlock, end_time: e.target.value})} />
+                     <div style={styles.listItemActions}>
+                       <button style={styles.buttonPrimary} onClick={handleUpdateBlock}>Save</button>
+                       <button style={styles.buttonSecondary} onClick={() => setEditingBlockId(null)}>Cancel</button>
+                     </div>
+                   </div>
+                 </div>
+               );
+             }
+
+             return (
+               <div key={block.id} style={styles.listItem}>
+                 <div style={styles.listItemHeader}>
+                   <div>
+                     <h3 style={styles.listItemTitle}>{block.title}</h3>
+                     <div style={styles.listItemMeta}>
+                       <div style={{...styles.colorDot, backgroundColor: cat.color}}></div>
+                       <span>{cat.name}</span>
+                       <span style={styles.listItemTime}>
+                         {formatTime(block.start_time)} – {formatTime(block.end_time)}
+                       </span>
+                     </div>
+                   </div>
+                   <div style={styles.listItemActions}>
+                     <button style={styles.buttonSecondary} onClick={() => startEditingBlock(block)}>Edit</button>
+                     <button style={styles.buttonDanger} onClick={() => handleDeleteBlock(block.id)}>Delete</button>
+                   </div>
+                 </div>
+               </div>
+             );
+           })}
+        </div>
+      </div>
+
       {/* Log Entries Section */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Log Entries</h2>
@@ -643,86 +723,6 @@ export default function DayView() {
                    </div>
                  </div>
                  {log.note && <div style={styles.listItemNote}>{log.note}</div>}
-               </div>
-             );
-           })}
-        </div>
-      </div>
-
-      {/* Planned Blocks Section */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Planned Blocks</h2>
-        
-        <form style={styles.form} onSubmit={handleAddBlock}>
-          <div style={styles.formRow}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Title</label>
-              <input required style={styles.input} type="text" value={newBlock.title} onChange={e => setNewBlock({...newBlock, title: e.target.value})} placeholder="What to do?" />
-            </div>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Category</label>
-              <select required style={styles.input} value={newBlock.category_id} onChange={e => setNewBlock({...newBlock, category_id: parseInt(e.target.value) || e.target.value})}>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={styles.formRow}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Start Time</label>
-              <input required style={styles.input} type="time" value={newBlock.start_time} onChange={e => setNewBlock({...newBlock, start_time: e.target.value})} />
-            </div>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>End Time</label>
-              <input required style={styles.input} type="time" value={newBlock.end_time} onChange={e => setNewBlock({...newBlock, end_time: e.target.value})} />
-            </div>
-          </div>
-          <button type="submit" style={styles.buttonPrimary}>Add Block</button>
-        </form>
-
-        <div style={styles.list}>
-          {loading ? <div style={styles.emptyState}>Loading...</div> : 
-           plannedBlocks.length === 0 ? <div style={styles.emptyState}>No planned blocks yet.</div> :
-           plannedBlocks.map(block => {
-             const cat = getCategoryDetails(block.category_id);
-             const isEditing = editingBlockId === block.id;
-
-             if (isEditing) {
-               return (
-                 <div key={block.id} style={styles.listItem}>
-                   <div style={styles.inlineForm}>
-                     <input style={styles.input} value={editBlock.title} onChange={e => setEditBlock({...editBlock, title: e.target.value})} />
-                     <select style={styles.input} value={editBlock.category_id} onChange={e => setEditBlock({...editBlock, category_id: parseInt(e.target.value) || e.target.value})}>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                     </select>
-                     <input type="time" style={styles.input} value={editBlock.start_time} onChange={e => setEditBlock({...editBlock, start_time: e.target.value})} />
-                     <input type="time" style={styles.input} value={editBlock.end_time} onChange={e => setEditBlock({...editBlock, end_time: e.target.value})} />
-                     <div style={styles.listItemActions}>
-                       <button style={styles.buttonPrimary} onClick={handleUpdateBlock}>Save</button>
-                       <button style={styles.buttonSecondary} onClick={() => setEditingBlockId(null)}>Cancel</button>
-                     </div>
-                   </div>
-                 </div>
-               );
-             }
-
-             return (
-               <div key={block.id} style={styles.listItem}>
-                 <div style={styles.listItemHeader}>
-                   <div>
-                     <h3 style={styles.listItemTitle}>{block.title}</h3>
-                     <div style={styles.listItemMeta}>
-                       <div style={{...styles.colorDot, backgroundColor: cat.color}}></div>
-                       <span>{cat.name}</span>
-                       <span style={styles.listItemTime}>
-                         {formatTime(block.start_time)} – {formatTime(block.end_time)}
-                       </span>
-                     </div>
-                   </div>
-                   <div style={styles.listItemActions}>
-                     <button style={styles.buttonSecondary} onClick={() => startEditingBlock(block)}>Edit</button>
-                     <button style={styles.buttonDanger} onClick={() => handleDeleteBlock(block.id)}>Delete</button>
-                   </div>
-                 </div>
                </div>
              );
            })}

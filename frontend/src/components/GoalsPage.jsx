@@ -63,8 +63,8 @@ export default function GoalsPage() {
     
     try {
       await createGoal({
-        categoryId: formCat,
-        targetMinutes: parseInt(formMins, 10),
+        category_id: parseInt(formCat, 10),
+        target_minutes: parseInt(formMins, 10),
         period: formPeriod
       });
       setFormMins('');
@@ -77,7 +77,7 @@ export default function GoalsPage() {
   const handleUpdateGoal = async (goalId) => {
     if (!editMins) return;
     try {
-      await updateGoal(goalId, { targetMinutes: parseInt(editMins, 10) });
+      await updateGoal(goalId, { target_minutes: parseInt(editMins, 10) });
       setEditingId(null);
       fetchData();
     } catch (err) {
@@ -141,7 +141,7 @@ export default function GoalsPage() {
           <div style={styles.empty}>No goals set yet. Create one above!</div>
         ) : (
           goals.map(goal => {
-            const cat = getCategory(goal.categoryId);
+            const cat = getCategory(goal.category_id);
             const isEditing = editingId === goal.id;
             
             return (
@@ -162,7 +162,7 @@ export default function GoalsPage() {
                         <span style={{ fontSize: '13px' }}>minutes</span>
                       </div>
                     ) : (
-                      <div style={styles.goalTarget}>Target: {formatMin(goal.targetMinutes)}</div>
+                      <div style={styles.goalTarget}>Target: {formatMin(goal.target_minutes)}</div>
                     )}
                   </div>
                 </div>
@@ -180,7 +180,7 @@ export default function GoalsPage() {
                       </>
                     ) : (
                       <>
-                        <button style={styles.buttonSecondary} onClick={() => { setEditingId(goal.id); setEditMins(goal.targetMinutes); }}>Edit</button>
+                        <button style={styles.buttonSecondary} onClick={() => { setEditingId(goal.id); setEditMins(goal.target_minutes); }}>Edit</button>
                         <button style={styles.buttonDanger} onClick={() => handleDelete(goal.id)}>Delete</button>
                       </>
                     )}

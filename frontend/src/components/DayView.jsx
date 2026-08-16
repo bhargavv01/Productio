@@ -239,6 +239,13 @@ const styles = {
 
 const formatTime = (dateString) => {
   if (!dateString) return '';
+  // Handle time-only strings like "09:00:00" from planned blocks
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(dateString)) {
+    const [h, m] = dateString.split(':');
+    const d = new Date();
+    d.setHours(parseInt(h), parseInt(m), 0);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
   const date = new Date(dateString);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
@@ -407,15 +414,16 @@ export default function DayView() {
   const handleAddBlock = async (e) => {
     e.preventDefault();
     try {
-      // Need full ISO string for start/end, combining date and time
-      const startIso = new Date(`${date}T${newBlock.start_time}:00`).toISOString();
-      const endIso = new Date(`${date}T${newBlock.end_time}:00`).toISOString();
+      // Backend expects separate date, start_time (HH:MM:SS), end_time (HH:MM:SS)
+      const startTime = newBlock.start_time.length === 5 ? `${newBlock.start_time}:00` : newBlock.start_time;
+      const endTime = newBlock.end_time.length === 5 ? `${newBlock.end_time}:00` : newBlock.end_time;
       
       await createPlannedBlock({
         title: newBlock.title,
         category_id: newBlock.category_id,
-        start_time: startIso,
-        end_time: endIso
+        date: date,
+        start_time: startTime,
+        end_time: endTime
       });
       fetchDayData(date);
       setNewBlock(prev => ({ ...prev, title: '' }));
@@ -436,8 +444,16 @@ export default function DayView() {
   };
 
   const startEditingBlock = (block) => {
-    const getLocalTime = (isoStr) => {
-      const d = new Date(isoStr);
+    // Backend returns time-only strings like "09:00:00", extract HH:MM
+    const getLocalTime = (timeStr) => {
+      if (!timeStr) return '09:00';
+      // Already "HH:MM" or "HH:MM:SS" format from the backend
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(timeStr)) {
+        return timeStr.substring(0, 5);
+      }
+      // Fallback: try parsing as a full datetime
+      const d = new Date(timeStr);
+      if (isNaN(d.getTime())) return timeStr.substring(0, 5);
       const pad = (n) => n.toString().padStart(2, '0');
       return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
@@ -452,14 +468,15 @@ export default function DayView() {
 
   const handleUpdateBlock = async () => {
     try {
-      const startIso = new Date(`${date}T${editBlock.start_time}:00`).toISOString();
-      const endIso = new Date(`${date}T${editBlock.end_time}:00`).toISOString();
+      const startTime = editBlock.start_time.length === 5 ? `${editBlock.start_time}:00` : editBlock.start_time;
+      const endTime = editBlock.end_time.length === 5 ? `${editBlock.end_time}:00` : editBlock.end_time;
       
       await updatePlannedBlock(editingBlockId, {
         title: editBlock.title,
         category_id: editBlock.category_id,
-        start_time: startIso,
-        end_time: endIso
+        date: date,
+        start_time: startTime,
+        end_time: endTime
       });
       setEditingBlockId(null);
       fetchDayData(date);
@@ -470,14 +487,14 @@ export default function DayView() {
 
   // Chart Data Preparation
   const chartData = useMemo(() => {
-    if (!report || !report.summary) return [];
-    return report.summary.map(s => {
+    if (!report || !report.categories) return [];
+    return report.categories.map(s => {
       const cat = categories.find(c => c.id === s.category_id);
       return {
-        name: cat ? cat.name : 'Unknown',
-        value: s.total_minutes,
-        color: cat ? cat.color : '#ccc',
-        type: cat ? cat.type : 'neutral'
+        name: s.name || (cat ? cat.name : 'Unknown'),
+        value: s.minutes,
+        color: s.color || (cat ? cat.color : '#ccc'),
+        label: s.label || (cat ? cat.label : 'neutral')
       };
     }).filter(d => d.value > 0);
   }, [report, categories]);
@@ -485,7 +502,7 @@ export default function DayView() {
   const totalMinutes = chartData.reduce((sum, item) => sum + item.value, 0);
 
   const getCategoryDetails = (id) => {
-    return categories.find(c => c.id === id) || { name: 'Unknown', color: '#ccc', type: 'neutral' };
+    return categories.find(c => c.id === id) || { name: 'Unknown', color: '#ccc', label: 'neutral' };
   };
 
   return (
@@ -539,7 +556,7 @@ export default function DayView() {
               <div key={index} style={styles.legendItem}>
                 <div style={{...styles.colorDot, backgroundColor: entry.color}}></div>
                 <span>{entry.name} ({formatDuration(entry.value)})</span>
-                <span style={styles.badge}>{entry.type}</span>
+                <span style={styles.badge}>{entry.label}</span>
               </div>
             ))}
           </div>

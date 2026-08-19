@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  CartesianGrid,
+} from 'recharts';
 import { getMonthReport, getCategories } from '../api/client';
-
-const styles = {
-  container: { padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif', color: 'var(--color-text)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
-  title: { margin: 0, fontSize: '24px', fontWeight: 600 },
-  controls: { display: 'flex', gap: '12px' },
-  input: { padding: '10px 12px', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '14px', backgroundColor: 'var(--color-surface)' },
-  card: { backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '24px', marginBottom: '24px' },
-  summary: { display: 'flex', gap: '24px', marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--color-border)' },
-  summaryItem: { display: 'flex', flexDirection: 'column' },
-  summaryLabel: { fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '4px' },
-  summaryValue: { fontSize: '24px', fontWeight: 600 },
-  empty: { textAlign: 'center', padding: '48px', color: 'var(--color-text-tertiary)' }
-};
+import {
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+import StatCard from './StatCard';
 
 export default function MonthView() {
   const today = new Date();
@@ -30,12 +35,12 @@ export default function MonthView() {
       try {
         const [reportRes, catsRes] = await Promise.all([
           getMonthReport(year, month),
-          getCategories()
+          getCategories(),
         ]);
         setReport(reportRes);
-        setCategories(catsRes);
+        setCategories(catsRes || []);
       } catch (err) {
-        console.error("Failed to fetch month data", err);
+        console.error('Failed to fetch month data', err);
       } finally {
         setLoading(false);
       }
@@ -43,63 +48,111 @@ export default function MonthView() {
     fetchData();
   }, [year, month]);
 
-  const { totalMinutes, chartData, daysWithData } = useMemo(() => {
-    if (!report || !report.days) return { totalMinutes: 0, chartData: [], daysWithData: 0 };
+  const adjustMonth = (delta) => {
+    let nextMonth = month + delta;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    } else if (nextMonth < 1) {
+      nextMonth = 12;
+      nextYear -= 1;
+    }
+    setYear(nextYear);
+    setMonth(nextMonth);
+  };
+
+  const { totalMinutes, chartData, daysWithData, topCategoryName, topCategoryColor } = useMemo(() => {
+    if (!report || !report.days) {
+      return { totalMinutes: 0, chartData: [], daysWithData: 0, topCategoryName: 'None', topCategoryColor: '#94a3b8' };
+    }
 
     let total = 0;
     let daysWithDataCount = 0;
-    
-    const formatted = report.days.map(day => {
-      // Sum up minutes from the categories array
-      let dailyTotal = day.total_minutes || 0;
+    const catAccumulator = {};
+
+    const formatted = report.days.map((day) => {
+      const dailyTotal = day.total_minutes || 0;
       total += dailyTotal;
       if (dailyTotal > 0) daysWithDataCount++;
 
-      // Find dominant category
       let dominantCat = null;
       let maxMins = 0;
       if (day.categories && day.categories.length > 0) {
-        day.categories.forEach(c => {
-          const cat = categories.find(cat => cat.id === c.category_id);
+        day.categories.forEach((c) => {
+          const cat = categories.find((item) => item.id === c.category_id);
+          catAccumulator[c.category_id] = (catAccumulator[c.category_id] || 0) + c.minutes;
           if (c.minutes > maxMins) {
             maxMins = c.minutes;
             dominantCat = cat || null;
           }
         });
       }
-      
+
       return {
-        dayNumber: new Date(day.date + 'T00:00:00').getDate(),
+        dayNumber: new Date(`${day.date}T00:00:00`).getDate(),
         totalMinutes: Math.round(dailyTotal),
-        dominantCat: dominantCat,
+        dominantCat,
         dominantCatName: dominantCat ? dominantCat.name : null,
         dominantCatMins: Math.round(maxMins),
-        fillColor: dailyTotal > 0 && dominantCat ? (dominantCat.color || 'var(--color-primary)') : 'var(--color-surface-alt)'
+        fillColor: dailyTotal > 0 && dominantCat ? dominantCat.color || '#3b82f6' : '#e2e8f0',
       };
     });
-    
-    return { totalMinutes: total, chartData: formatted, daysWithData: daysWithDataCount };
+
+    // Find overall top category in the month
+    let bestCatId = null;
+    let highestMins = 0;
+    Object.entries(catAccumulator).forEach(([catId, mins]) => {
+      if (mins > highestMins) {
+        highestMins = mins;
+        bestCatId = parseInt(catId, 10);
+      }
+    });
+
+    const bestCat = categories.find((c) => c.id === bestCatId);
+
+    return {
+      totalMinutes: total,
+      chartData: formatted,
+      daysWithData: daysWithDataCount,
+      topCategoryName: bestCat ? bestCat.name : 'None',
+      topCategoryColor: bestCat ? bestCat.color : '#94a3b8',
+    };
   }, [report, categories]);
 
   const formatMin = (mins) => {
     const rounded = Math.round(mins);
-    return `${Math.floor(rounded / 60)}h ${rounded % 60}m`;
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
   };
-  
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const dailyAverage = daysWithData > 0 ? Math.round(totalMinutes / daysWithData) : 0;
+  const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
+
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       if (data.totalMinutes === 0) return null;
+
       return (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-          <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Day {data.dayNumber}</p>
-          <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-            Total: <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{data.totalMinutes}m</span>
+        <div className="bg-white p-3.5 rounded-xl shadow-lg border border-slate-200/80 text-xs">
+          <p className="font-bold text-slate-800 mb-1">
+            {monthName} {data.dayNumber}, {year}
+          </p>
+          <div className="flex items-center gap-1.5 text-slate-600 font-semibold mb-1">
+            <span>Total Logged:</span>
+            <span className="text-blue-600 font-extrabold">{formatMin(data.totalMinutes)}</span>
           </div>
           {data.dominantCat && (
-            <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-              <div style={{ width: '10px', height: '10px', backgroundColor: data.dominantCat.color, marginRight: '6px', borderRadius: '2px' }} />
-              <span>Top: {data.dominantCatName} ({data.dominantCatMins}m)</span>
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 mt-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.dominantCat.color }} />
+              <span className="text-slate-700 font-medium">
+                Top: {data.dominantCatName} ({formatMin(data.dominantCatMins)})
+              </span>
             </div>
           )}
         </div>
@@ -108,61 +161,157 @@ export default function MonthView() {
     return null;
   };
 
-  const daysInMonth = new Date(year, month, 0).getDate();
-
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Month View</h1>
-        <div style={styles.controls}>
-          <select style={styles.input} value={month} onChange={(e) => setMonth(parseInt(e.target.value))}>
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header & Month Switcher */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+            <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+            <span>Monthly Trends</span>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
+            {monthName} {year}
+          </h2>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            {daysWithData} of {daysInMonth} days active
+          </p>
+        </div>
+
+        {/* Month Navigation Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              onClick={() => adjustMonth(-1)}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+              title="Previous Month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setYear(today.getFullYear());
+                setMonth(today.getMonth() + 1);
+              }}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                year === today.getFullYear() && month === today.getMonth() + 1
+                  ? 'bg-white text-blue-700 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              This Month
+            </button>
+            <button
+              onClick={() => adjustMonth(1)}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+              title="Next Month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <select
+            value={month}
+            onChange={(e) => setMonth(parseInt(e.target.value, 10))}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 shadow-xs hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+          >
             {Array.from({ length: 12 }).map((_, i) => (
-              <option key={i+1} value={i+1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>
+              <option key={i + 1} value={i + 1}>
+                {new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}
+              </option>
             ))}
           </select>
-          <input 
-            type="number" 
-            style={{...styles.input, width: '80px'}} 
-            value={year} 
-            onChange={(e) => setYear(parseInt(e.target.value))} 
-            min="2000" max="2100"
+
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(parseInt(e.target.value, 10))}
+            min="2020"
+            max="2035"
+            className="w-20 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 shadow-xs hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
         </div>
       </div>
 
-      <div style={styles.card}>
+      {/* Top Stat Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Month Hours"
+          value={formatMin(totalMinutes)}
+          subtitle="logged this month"
+          icon={Clock}
+          color="blue"
+        />
+        <StatCard
+          title="Active Days"
+          value={`${daysWithData} / ${daysInMonth}`}
+          subtitle={`${Math.round((daysWithData / daysInMonth) * 100)}% consistency`}
+          icon={CheckCircle2}
+          color="emerald"
+          progress={(daysWithData / daysInMonth) * 100}
+        />
+        <StatCard
+          title="Daily Active Average"
+          value={formatMin(dailyAverage)}
+          subtitle="on active days"
+          icon={TrendingUp}
+          color="indigo"
+        />
+        <StatCard
+          title="Dominant Category"
+          value={topCategoryName}
+          subtitle="most time spent"
+          icon={Sparkles}
+          color="violet"
+        />
+      </div>
+
+      {/* Monthly Bar Chart */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Daily Activity Heatmap</h3>
+            <p className="text-xs text-slate-500">Bars are color-coded by the dominant category of each day</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+            {monthName} {year}
+          </span>
+        </div>
+
         {loading ? (
-          <div style={styles.empty}>Loading...</div>
-        ) : chartData.length === 0 ? (
-          <div style={styles.empty}>No data available for this month.</div>
+          <div className="text-center py-16 text-slate-400 text-sm">Loading month report...</div>
+        ) : chartData.length === 0 || totalMinutes === 0 ? (
+          <div className="text-center py-16 text-slate-400">
+            <CalendarDays className="w-12 h-12 mx-auto text-slate-200 mb-2 stroke-[1.5]" />
+            <p className="text-sm font-medium">No activity logged for {monthName} {year}</p>
+            <p className="text-xs text-slate-400 mt-1">Start logging daily activities to view monthly trends</p>
+          </div>
         ) : (
-          <>
-            <div style={{ height: '350px', width: '100%' }}>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="dayNumber" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
-                  <YAxis tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--color-surface-alt)' }} />
-                  <Bar dataKey="totalMinutes" radius={[4, 4, 0, 0]}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fillColor} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            
-            <div style={styles.summary}>
-              <div style={styles.summaryItem}>
-                <span style={styles.summaryLabel}>Total Time Logged</span>
-                <span style={styles.summaryValue}>{formatMin(totalMinutes)}</span>
-              </div>
-              <div style={styles.summaryItem}>
-                <span style={styles.summaryLabel}>Days Logged</span>
-                <span style={styles.summaryValue}>{daysWithData} / {daysInMonth}</span>
-              </div>
-            </div>
-          </>
+          <div className="h-[340px] w-full">
+            <ResponsiveContainer width="100%" height={340}>
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="dayNumber"
+                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                />
+                <YAxis
+                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => `${Math.round(val / 60)}h`}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                <Bar dataKey="totalMinutes" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fillColor} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
     </div>

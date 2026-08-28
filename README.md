@@ -8,51 +8,51 @@
 [![Vite](https://img.shields.io/badge/Vite-8.0+-646CFF.svg?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38B2AC.svg?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-A modern, self-hosted personal day-tracking application. Log how your time is actually spent, plan your day in blocks ahead of time, set habit targets, and see reports modeled after **Android & Apple Screen Time** (time categorized by productivity labels).
+A modern, self-hosted personal day-tracking application. Log how your time is actually spent, plan your day in blocks ahead of time, set habit targets, and view reports modeled after Android and Apple Screen Time (time categorized by productivity labels).
 
 ---
 
-## ✨ Features
+## Features
 
-- ☀️ **Day View (Command Center)**:
-  - **Screen Time Ring Chart**: Visual donut chart breaking down your day with central "Accounted Time / 24h" indicator.
+- **Day View (Command Center)**:
+  - **Screen Time Ring Chart**: Visual donut chart breaking down your day with a central "Accounted Time / 24h" indicator.
   - **Productivity Score**: Real-time ratio of productive vs. neutral vs. unproductive time.
   - **Planned Blocks**: Schedule your day in advance. Includes a **"Log This"** shortcut button that pre-fills actual logs directly from planned blocks.
   - **Activity Log Entries**: Chronological activity timeline with duration pills, notes preview, and inline edit mode.
   - **Quick Date Switcher**: Jump between *Yesterday*, *Today*, *Tomorrow*, or any custom date.
 
-- 📊 **Week View**:
+- **Week View**:
   - **7-Day Stacked Activity Chart**: Compare category distributions across the week with interactive tooltips.
   - **Summary Metrics**: Total weekly hours, daily average volume, productive share, and peak activity day.
   - **Daily Highlight Cards**: Quick-glance cards showing category distribution mini-bars for each day of the week.
 
-- 📅 **Month View**:
+- **Month View**:
   - **Daily Activity Heatmap/Bar Chart**: Daily totals color-coded by the dominant category of each day.
   - **Monthly Metrics**: Total hours logged, active days consistency percentage, and overall dominant category.
 
-- 🎯 **Goals Management**:
-  - Set daily or weekly time targets per category (e.g., *4 hours of Work per day*, *5 hours of Study per week*).
+- **Goals Management**:
+  - Set daily or weekly time targets per category (for example, *4 hours of Work per day*, *5 hours of Study per week*).
   - Quick duration presets (`30m`, `1h`, `2h`, `3h`, `4h`) for rapid goal configuration.
 
-- 🏷️ **Pre-Seeded Default Categories**:
+- **Pre-Seeded Default Categories**:
   - Idempotent seed on startup with sensible colors and productivity labels:
-    - 🔵 **Work** (`#3B82F6` — Productive)
-    - 🟣 **Study** (`#8B5CF6` — Productive)
-    - 🟢 **Health** (`#10B981` — Productive)
-    - 🟡 **Social** (`#F59E0B` — Neutral)
-    - 🔴 **Entertainment** (`#EF4444` — Unproductive)
-    - ⚪ **Chores** (`#6B7280` — Neutral)
+    - **Work** (`#3B82F6` — Productive)
+    - **Study** (`#8B5CF6` — Productive)
+    - **Health** (`#10B981` — Productive)
+    - **Social** (`#F59E0B` — Neutral)
+    - **Entertainment** (`#EF4444` — Unproductive)
+    - **Chores** (`#6B7280` — Neutral)
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (sync execution, ASGI with Uvicorn)
 - **ORM**: [SQLAlchemy 2.0](https://www.sqlalchemy.org/)
 - **Database**: [PostgreSQL](https://www.postgresql.org/) (driver: `psycopg2-binary`)
 - **Migrations**: [Alembic](https://alembic.sqlalchemy.org/)
-- **Configuration & Validation**: [Pydantic v2](https://docs.pydantic.dev/) & [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)
+- **Configuration & Validation**: [Pydantic v2](https://docs.pydantic.dev/) and [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)
 
 ### Frontend
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
@@ -64,7 +64,7 @@ A modern, self-hosted personal day-tracking application. Log how your time is ac
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 Productio/
@@ -123,7 +123,7 @@ Productio/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Python** 3.10 or higher
@@ -246,7 +246,7 @@ CREATE DATABASE productio;
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 All routes are prefixed under the backend server and proxied via Vite at `/api/*`.
 
@@ -295,7 +295,7 @@ All routes are prefixed under the backend server and proxied via Vite at `/api/*
 
 ---
 
-## 🔒 Security & Environment Configuration
+## Security & Environment Configuration
 
 - **No Hardcoded Credentials**: Database URLs and secrets are read strictly from `.env` files via `pydantic-settings` (backend) and `import.meta.env` (frontend).
 - **Alembic Dynamic Configuration**: `alembic.ini` does not contain sensitive database connection strings; URLs are injected dynamically from `app.config.settings.DATABASE_URL` during runtime.
@@ -304,7 +304,7 @@ All routes are prefixed under the backend server and proxied via Vite at `/api/*
 
 ---
 
-## 💡 Useful Commands
+## Useful Commands
 
 ```bash
 # Apply pending database migrations
@@ -322,6 +322,6 @@ cd frontend && npm run build
 
 ---
 
-## 📄 License
+## License
 
 This project is open-source and available under the [MIT License](LICENSE).

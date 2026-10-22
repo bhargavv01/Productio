@@ -10,6 +10,8 @@ import {
   updatePlannedBlock,
   deletePlannedBlock,
   getDayReport,
+  getErrorMessage,
+  toApiDateTime,
 } from '../api/client';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -20,16 +22,12 @@ import {
   Edit2,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
   Sparkles,
   ListTodo,
   History,
-  Tag,
-  AlignLeft,
   X,
   Play,
-  Activity,
-  ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import CategoryBadge from './CategoryBadge';
 import StatCard from './StatCard';
@@ -62,6 +60,14 @@ const formatDuration = (minutes) => {
   return `${h}h ${m}m`;
 };
 
+const ErrorNote = ({ message }) =>
+  message ? (
+    <div className="flex items-start gap-2 px-3.5 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
+      <AlertCircle className="w-4 h-4 shrink-0" />
+      <span>{message}</span>
+    </div>
+  ) : null;
+
 export default function DayView() {
   const [date, setDate] = useState(getTodayDateString());
   const [categories, setCategories] = useState([]);
@@ -69,6 +75,11 @@ export default function DayView() {
   const [plannedBlocks, setPlannedBlocks] = useState([]);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Error messages, shown next to the section they belong to
+  const [loadError, setLoadError] = useState('');
+  const [logError, setLogError] = useState('');
+  const [blockError, setBlockError] = useState('');
 
   // Forms Visibility Toggles
   const [showLogForm, setShowLogForm] = useState(false);
@@ -114,11 +125,13 @@ export default function DayView() {
       setCategories(cats);
     } catch (error) {
       console.error('Failed to fetch categories', error);
+      setLoadError(getErrorMessage(error));
     }
   };
 
   const fetchDayData = async (selectedDate) => {
     setLoading(true);
+    setLoadError('');
     try {
       const [logs, blocks, dayReport] = await Promise.all([
         getLogEntries(selectedDate),
@@ -130,13 +143,13 @@ export default function DayView() {
       setReport(dayReport);
     } catch (error) {
       console.error('Failed to fetch day data', error);
+      setLoadError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
   const setDefaultLogTimes = (selectedDate) => {
-    const now = new Date();
     let start;
     if (selectedDate === getTodayDateString()) {
       start = new Date();
@@ -192,13 +205,18 @@ export default function DayView() {
   const handleAddLog = async (e) => {
     e.preventDefault();
     if (!newLog.title || !newLog.category_id || !newLog.start_time || !newLog.end_time) return;
+    if (newLog.end_time <= newLog.start_time) {
+      setLogError('End time must be after start time');
+      return;
+    }
 
+    setLogError('');
     try {
       const entryToCreate = {
         title: newLog.title,
         category_id: parseInt(newLog.category_id, 10),
-        start_time: new Date(newLog.start_time).toISOString(),
-        end_time: new Date(newLog.end_time).toISOString(),
+        start_time: toApiDateTime(newLog.start_time),
+        end_time: toApiDateTime(newLog.end_time),
         note: newLog.note || null,
       };
       await createLogEntry(entryToCreate);
@@ -208,6 +226,7 @@ export default function DayView() {
       setShowLogForm(false);
     } catch (error) {
       console.error('Failed to add log entry', error);
+      setLogError(getErrorMessage(error));
     }
   };
 
@@ -218,6 +237,7 @@ export default function DayView() {
         fetchDayData(date);
       } catch (error) {
         console.error('Failed to delete log entry', error);
+        setLogError(getErrorMessage(error));
       }
     }
   };
@@ -229,6 +249,7 @@ export default function DayView() {
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
+    setLogError('');
     setEditingLogId(log.id);
     setEditLog({
       ...log,
@@ -238,12 +259,17 @@ export default function DayView() {
   };
 
   const handleUpdateLog = async () => {
+    if (!editLog.title || editLog.end_time <= editLog.start_time) {
+      setLogError(editLog.title ? 'End time must be after start time' : 'Title is required');
+      return;
+    }
+    setLogError('');
     try {
       const entryToUpdate = {
         title: editLog.title,
         category_id: parseInt(editLog.category_id, 10),
-        start_time: new Date(editLog.start_time).toISOString(),
-        end_time: new Date(editLog.end_time).toISOString(),
+        start_time: toApiDateTime(editLog.start_time),
+        end_time: toApiDateTime(editLog.end_time),
         note: editLog.note || null,
       };
       await updateLogEntry(editingLogId, entryToUpdate);
@@ -251,6 +277,7 @@ export default function DayView() {
       fetchDayData(date);
     } catch (error) {
       console.error('Failed to update log entry', error);
+      setLogError(getErrorMessage(error));
     }
   };
 
@@ -258,7 +285,12 @@ export default function DayView() {
   const handleAddBlock = async (e) => {
     e.preventDefault();
     if (!newBlock.title || !newBlock.category_id || !newBlock.start_time || !newBlock.end_time) return;
+    if (newBlock.end_time <= newBlock.start_time) {
+      setBlockError('End time must be after start time');
+      return;
+    }
 
+    setBlockError('');
     try {
       const startTime = newBlock.start_time.length === 5 ? `${newBlock.start_time}:00` : newBlock.start_time;
       const endTime = newBlock.end_time.length === 5 ? `${newBlock.end_time}:00` : newBlock.end_time;
@@ -275,6 +307,7 @@ export default function DayView() {
       setShowBlockForm(false);
     } catch (error) {
       console.error('Failed to add block', error);
+      setBlockError(getErrorMessage(error));
     }
   };
 
@@ -285,6 +318,7 @@ export default function DayView() {
         fetchDayData(date);
       } catch (error) {
         console.error('Failed to delete block', error);
+        setBlockError(getErrorMessage(error));
       }
     }
   };
@@ -301,6 +335,7 @@ export default function DayView() {
       return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
+    setBlockError('');
     setEditingBlockId(block.id);
     setEditBlock({
       ...block,
@@ -310,6 +345,11 @@ export default function DayView() {
   };
 
   const handleUpdateBlock = async () => {
+    if (!editBlock.title || editBlock.end_time <= editBlock.start_time) {
+      setBlockError(editBlock.title ? 'End time must be after start time' : 'Title is required');
+      return;
+    }
+    setBlockError('');
     try {
       const startTime = editBlock.start_time.length === 5 ? `${editBlock.start_time}:00` : editBlock.start_time;
       const endTime = editBlock.end_time.length === 5 ? `${editBlock.end_time}:00` : editBlock.end_time;
@@ -325,12 +365,12 @@ export default function DayView() {
       fetchDayData(date);
     } catch (error) {
       console.error('Failed to update block', error);
+      setBlockError(getErrorMessage(error));
     }
   };
 
   // Convert planned block to actual log pre-fill
   const logPlannedBlock = (block) => {
-    const pad = (n) => n.toString().padStart(2, '0');
     const start = `${date}T${block.start_time.substring(0, 5)}`;
     const end = `${date}T${block.end_time.substring(0, 5)}`;
 
@@ -341,6 +381,7 @@ export default function DayView() {
       end_time: end,
       note: 'Logged from planned block',
     });
+    setLogError('');
     setShowLogForm(true);
     // Scroll to form smoothly
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -431,6 +472,8 @@ export default function DayView() {
           </div>
         </div>
       </div>
+
+      <ErrorNote message={loadError} />
 
       {/* Top Stat Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -580,13 +623,22 @@ export default function DayView() {
           </div>
 
           <button
-            onClick={() => setShowBlockForm(!showBlockForm)}
+            onClick={() => {
+              setShowBlockForm(!showBlockForm);
+              setBlockError('');
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold transition-all shadow-2xs"
           >
             {showBlockForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             <span>{showBlockForm ? 'Cancel' : 'Plan Block'}</span>
           </button>
         </div>
+
+        {blockError && (
+          <div className="mb-4">
+            <ErrorNote message={blockError} />
+          </div>
+        )}
 
         {/* Collapsible Add Block Form */}
         {showBlockForm && (
@@ -648,7 +700,10 @@ export default function DayView() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setShowBlockForm(false)}
+                onClick={() => {
+                  setShowBlockForm(false);
+                  setBlockError('');
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-xl transition-all"
               >
                 Cancel
@@ -714,7 +769,10 @@ export default function DayView() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => setEditingBlockId(null)}
+                        onClick={() => {
+                          setEditingBlockId(null);
+                          setBlockError('');
+                        }}
                         className="px-3 py-1.5 text-xs text-slate-600 font-medium hover:bg-slate-200 rounded-lg"
                       >
                         Cancel
@@ -792,13 +850,22 @@ export default function DayView() {
           </div>
 
           <button
-            onClick={() => setShowLogForm(!showLogForm)}
+            onClick={() => {
+              setShowLogForm(!showLogForm);
+              setLogError('');
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs"
           >
             {showLogForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             <span>{showLogForm ? 'Cancel' : 'Log Activity'}</span>
           </button>
         </div>
+
+        {logError && (
+          <div className="mb-4">
+            <ErrorNote message={logError} />
+          </div>
+        )}
 
         {/* Collapsible Add Log Form */}
         {showLogForm && (
@@ -871,7 +938,10 @@ export default function DayView() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setShowLogForm(false)}
+                onClick={() => {
+                  setShowLogForm(false);
+                  setLogError('');
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-xl transition-all"
               >
                 Cancel
@@ -944,7 +1014,10 @@ export default function DayView() {
                     />
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => setEditingLogId(null)}
+                        onClick={() => {
+                          setEditingLogId(null);
+                          setLogError('');
+                        }}
                         className="px-3 py-1.5 text-xs text-slate-600 font-medium hover:bg-slate-200 rounded-lg"
                       >
                         Cancel

@@ -5,6 +5,23 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Turn an axios error into a message worth showing the user.
+export const getErrorMessage = (error) => {
+  const detail = error?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    // FastAPI validation errors: [{ loc, msg }, ...]
+    return detail.map((d) => d.msg.replace(/^Value error, /, '')).join('; ')
+  }
+  if (!error?.response) return 'Could not reach the server. Is the backend running?'
+  return `Request failed (${error.response.status})`
+}
+
+// Log times are sent as local wall-clock time ("2026-10-22T10:00:00"), never
+// converted to UTC, so they mean the same thing whatever the server's timezone.
+export const toApiDateTime = (localInputValue) =>
+  localInputValue.length === 16 ? `${localInputValue}:00` : localInputValue
+
 // ── Categories ──
 export const getCategories = () => api.get('/categories/').then(r => r.data)
 export const createCategory = (data) => api.post('/categories/', data).then(r => r.data)

@@ -62,7 +62,7 @@ export default function MonthView() {
     setMonth(nextMonth);
   };
 
-  const { totalMinutes, chartData, daysWithData, topCategoryName, topCategoryColor } = useMemo(() => {
+  const { totalMinutes, chartData, daysWithData, topCategoryName } = useMemo(() => {
     if (!report || !report.days) {
       return { totalMinutes: 0, chartData: [], daysWithData: 0, topCategoryName: 'None', topCategoryColor: '#94a3b8' };
     }

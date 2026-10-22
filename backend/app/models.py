@@ -29,7 +29,8 @@ class Category(Base):
     color = Column(String(7), nullable=False)
     label = Column(SAEnum(CategoryLabel, name="categorylabel", create_constraint=False, native_enum=False), nullable=False)
 
-    log_entries = relationship("LogEntry", back_populates="category", cascade="all, delete-orphan")
+    # Log history is never deleted with its category (the API refuses instead).
+    log_entries = relationship("LogEntry", back_populates="category", passive_deletes="all")
     planned_blocks = relationship("PlannedBlock", back_populates="category", cascade="all, delete-orphan")
     goals = relationship("Goal", back_populates="category", cascade="all, delete-orphan")
 
@@ -38,10 +39,11 @@ class LogEntry(Base):
     __tablename__ = "log_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
     title = Column(String(255), nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    # Naive local wall-clock time (what the user typed), not UTC.
+    start_time = Column(DateTime, nullable=False, index=True)
+    end_time = Column(DateTime, nullable=False, index=True)
     note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

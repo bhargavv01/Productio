@@ -1,15 +1,30 @@
 from datetime import datetime, date, time
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.models import CategoryLabel, GoalPeriod
+
+MINUTES_PER_PERIOD = {GoalPeriod.daily: 24 * 60, GoalPeriod.weekly: 7 * 24 * 60}
+
+
+def _to_local_naive(value: datetime) -> datetime:
+    """Log times are stored as naive local wall-clock time. If a client sends an
+    offset-aware value, convert it to this machine's local time and drop the offset."""
+    if value.tzinfo is not None:
+        return value.astimezone().replace(tzinfo=None)
+    return value
+
+
+LocalDateTime = Annotated[datetime, AfterValidator(_to_local_naive)]
+Title = Annotated[str, Field(min_length=1, max_length=255)]
+HexColor = Annotated[str, Field(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
 
 # ---------- Category ----------
 class CategoryBase(BaseModel):
-    name: str
-    color: str
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    color: HexColor
     label: CategoryLabel
 
 
@@ -18,8 +33,8 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
+    name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
+    color: Optional[HexColor] = None
     label: Optional[CategoryLabel] = None
 
 
@@ -31,21 +46,28 @@ class CategoryRead(CategoryBase):
 # ---------- LogEntry ----------
 class LogEntryBase(BaseModel):
     category_id: int
-    title: str
+    title: Title
     start_time: datetime
     end_time: datetime
     note: Optional[str] = None
 
 
 class LogEntryCreate(LogEntryBase):
-    pass
+    start_time: LocalDateTime
+    end_time: LocalDateTime
+
+    @model_validator(mode="after")
+    def check_order(self):
+        if self.end_time <= self.start_time:
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class LogEntryUpdate(BaseModel):
     category_id: Optional[int] = None
-    title: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    title: Optional[Title] = None
+    start_time: Optional[LocalDateTime] = None
+    end_time: Optional[LocalDateTime] = None
     note: Optional[str] = None
 
 
@@ -60,19 +82,23 @@ class LogEntryRead(LogEntryBase):
 class PlannedBlockBase(BaseModel):
     date: date
     category_id: int
-    title: str
+    title: Title
     start_time: time
     end_time: time
 
 
 class PlannedBlockCreate(PlannedBlockBase):
-    pass
+    @model_validator(mode="after")
+    def check_order(self):
+        if self.end_time <= self.start_time:
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class PlannedBlockUpdate(BaseModel):
     date: Optional[date] = None
     category_id: Optional[int] = None
-    title: Optional[str] = None
+    title: Optional[Title] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
 
@@ -91,12 +117,18 @@ class GoalBase(BaseModel):
 
 
 class GoalCreate(GoalBase):
-    pass
+    target_minutes: Annotated[int, Field(gt=0)]
+
+    @model_validator(mode="after")
+    def check_fits_period(self):
+        if self.target_minutes > MINUTES_PER_PERIOD[self.period]:
+            raise ValueError(f"target_minutes cannot exceed the length of a {self.period.value} period")
+        return self
 
 
 class GoalUpdate(BaseModel):
     category_id: Optional[int] = None
-    target_minutes: Optional[int] = None
+    target_minutes: Optional[Annotated[int, Field(gt=0)]] = None
     period: Optional[GoalPeriod] = None
 
 

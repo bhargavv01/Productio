@@ -1,8 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Optional
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, cast, Date
 
 from app.models import LogEntry
 from app.schemas import LogEntryCreate, LogEntryUpdate
@@ -16,13 +15,15 @@ def get_all(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ) -> list[LogEntry]:
+    """Date filters match every entry that overlaps the day(s), so an entry
+    running past midnight shows up on both days."""
     q = db.query(LogEntry).options(joinedload(LogEntry.category))
     if filter_date:
-        q = q.filter(cast(LogEntry.start_time, Date) == filter_date)
+        start_date = end_date = filter_date
     if start_date:
-        q = q.filter(cast(LogEntry.start_time, Date) >= start_date)
+        q = q.filter(LogEntry.end_time > datetime.combine(start_date, time.min))
     if end_date:
-        q = q.filter(cast(LogEntry.start_time, Date) <= end_date)
+        q = q.filter(LogEntry.start_time < datetime.combine(end_date + timedelta(days=1), time.min))
     return q.order_by(LogEntry.start_time).offset(skip).limit(limit).all()
 
 
@@ -50,6 +51,9 @@ def update(db: Session, entry_id: int, data: LogEntryUpdate) -> LogEntry | None:
     if not obj:
         return None
     for key, value in data.model_dump(exclude_unset=True).items():
+        # note may be cleared with null; every other column is required
+        if value is None and key != "note":
+            continue
         setattr(obj, key, value)
     db.commit()
     db.refresh(obj)

@@ -36,7 +36,7 @@ def update(db: Session, goal_id: int, data: GoalUpdate) -> Goal | None:
     obj = db.query(Goal).filter(Goal.id == goal_id).first()
     if not obj:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in data.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(obj, key, value)
     db.commit()
     db.refresh(obj)

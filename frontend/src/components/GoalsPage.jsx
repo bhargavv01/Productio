@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getGoals, getCategories, createGoal, updateGoal, deleteGoal } from '../api/client';
+import { getGoals, getCategories, createGoal, updateGoal, deleteGoal, getErrorMessage } from '../api/client';
 import {
   Target,
   Plus,
   Trash2,
   Edit2,
   Clock,
-  CheckCircle,
   X,
-  Sparkles,
   Calendar,
+  AlertCircle,
 } from 'lucide-react';
 import CategoryBadge from './CategoryBadge';
 import StatCard from './StatCard';
@@ -19,6 +18,7 @@ export default function GoalsPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState('');
 
   const [formCat, setFormCat] = useState('');
   const [formMins, setFormMins] = useState('60');
@@ -43,6 +43,7 @@ export default function GoalsPage() {
       }
     } catch (err) {
       console.error('Failed to fetch goals', err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -52,6 +53,7 @@ export default function GoalsPage() {
     e.preventDefault();
     if (!formCat || !formMins) return;
 
+    setError('');
     try {
       await createGoal({
         category_id: parseInt(formCat, 10),
@@ -63,11 +65,13 @@ export default function GoalsPage() {
       fetchData();
     } catch (err) {
       console.error('Failed to create goal', err);
+      setError(getErrorMessage(err));
     }
   };
 
   const handleUpdateGoal = async (goalId) => {
     if (!editMins) return;
+    setError('');
     try {
       await updateGoal(goalId, {
         target_minutes: parseInt(editMins, 10),
@@ -77,6 +81,7 @@ export default function GoalsPage() {
       fetchData();
     } catch (err) {
       console.error('Failed to update goal', err);
+      setError(getErrorMessage(err));
     }
   };
 
@@ -87,6 +92,7 @@ export default function GoalsPage() {
         fetchData();
       } catch (err) {
         console.error('Failed to delete goal', err);
+        setError(getErrorMessage(err));
       }
     }
   };
@@ -170,6 +176,13 @@ export default function GoalsPage() {
           color="violet"
         />
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 px-3.5 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Collapsible New Goal Form */}
       {showForm && (

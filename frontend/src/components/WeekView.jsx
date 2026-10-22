@@ -87,7 +87,7 @@ export default function WeekView() {
 
       if (day.total_minutes > peakMinutes) {
         peakMinutes = day.total_minutes;
-        peakDay = `${dayLabel} (${Math.round(day.total_minutes / 60)}h)`;
+        peakDay = `${dayLabel} (${(day.total_minutes / 60).toFixed(1).replace(/.0$/, '')}h)`;
       }
 
       const catMinutes = {};

@@ -257,13 +257,13 @@ All routes are prefixed under the backend server and proxied via Vite at `/api/*
 | `POST` | `/categories/` | Create a new category |
 | `GET` | `/categories/{id}` | Get category by ID |
 | `PUT` | `/categories/{id}` | Update category |
-| `DELETE` | `/categories/{id}` | Delete category (cascades related items) |
+| `DELETE` | `/categories/{id}` | Delete category and its planned blocks/goals. Refused (`409`) while it still has log entries |
 
 ### Activity Logs (`/log-entries`)
 | Method | Endpoint | Query Parameters | Description |
 |---|---|---|---|
 | `GET` | `/log-entries/` | `date`, `start_date`, `end_date`, `skip`, `limit` | List activity log entries |
-| `POST` | `/log-entries/` | — | Record a new activity entry |
+| `POST` | `/log-entries/` | — | Record a new activity entry (`409` if it overlaps another entry) |
 | `GET` | `/log-entries/{id}` | — | Get entry details |
 | `PUT` | `/log-entries/{id}` | — | Update an activity entry |
 | `DELETE` | `/log-entries/{id}` | — | Delete an activity entry |
@@ -289,9 +289,28 @@ All routes are prefixed under the backend server and proxied via Vite at `/api/*
 ### Reports (`/reports`)
 | Method | Endpoint | Query Parameters | Description |
 |---|---|---|---|
-| `GET` | `/reports/day` | `date` (`YYYY-MM-DD`) | Total minutes per category for the day + total accounted vs 1440 min |
+| `GET` | `/reports/day` | `date` (`YYYY-MM-DD`) | Total minutes per category for the day + total accounted vs 1440 min (entries crossing midnight are split between days) |
 | `GET` | `/reports/week` | `start` (`YYYY-MM-DD`) | 7-day daily category breakdowns from start date |
 | `GET` | `/reports/month` | `year` (`YYYY`), `month` (`1-12`) | Day-by-day category summaries for the entire month |
+
+---
+
+### Data rules
+- **Times are local wall-clock time.** Log entries are sent and stored as naive local datetimes (`2026-10-22T10:00:00`), so they don't shift if the Postgres server's timezone changes. Offset-aware values sent to the API are converted to the backend machine's local time.
+- **No overlapping log entries.** Each minute of the day can only be logged once, so totals never exceed 24h.
+- **Validation errors are returned as `422`/`409` with a readable `detail`**, which the UI shows next to the form.
+
+---
+
+## Running Tests
+
+The backend tests create (and afterwards drop) a separate `productio_test` database on the same Postgres server as `DATABASE_URL`:
+
+```bash
+pip install -r backend/requirements-dev.txt
+cd backend
+pytest
+```
 
 ---
 

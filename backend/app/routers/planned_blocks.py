@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.checks import require_category, require_order
 from app.database import get_db
 from app.schemas import PlannedBlockCreate, PlannedBlockUpdate, PlannedBlockRead
 from app.crud import planned_blocks as crud
@@ -31,15 +32,19 @@ def get_planned_block(block_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=PlannedBlockRead, status_code=201)
 def create_planned_block(data: PlannedBlockCreate, db: Session = Depends(get_db)):
+    require_category(db, data.category_id)
     return crud.create(db, data)
 
 
 @router.put("/{block_id}", response_model=PlannedBlockRead)
 def update_planned_block(block_id: int, data: PlannedBlockUpdate, db: Session = Depends(get_db)):
-    obj = crud.update(db, block_id, data)
+    obj = crud.get_by_id(db, block_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Planned block not found")
-    return obj
+    if data.category_id is not None:
+        require_category(db, data.category_id)
+    require_order(data.start_time or obj.start_time, data.end_time or obj.end_time)
+    return crud.update(db, block_id, data)
 
 
 @router.delete("/{block_id}", status_code=204)
